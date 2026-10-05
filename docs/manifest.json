@@ -3309,6 +3309,16 @@
                   "lastModified": "2026-04-20T16:08:16+02:00"
                 },
                 {
+                  "title": "StockLevelLockOptions",
+                  "slug": "stock-level-lock-options",
+                  "file": "docs/reference/typescript-api/services/stock-level-lock-options.mdx"
+                },
+                {
+                  "title": "StockLevelReadOptions",
+                  "slug": "stock-level-read-options",
+                  "file": "docs/reference/typescript-api/services/stock-level-read-options.mdx"
+                },
+                {
                   "title": "StockLevelService",
                   "slug": "stock-level-service",
                   "file": "docs/reference/typescript-api/services/stock-level-service.mdx",
