@@ -2146,7 +2146,7 @@
                   "title": "Event Types",
                   "slug": "event-types",
                   "file": "docs/reference/typescript-api/events/event-types.mdx",
-                  "lastModified": "2026-08-13T14:40:56+02:00"
+                  "lastModified": "2026-10-05T09:50:33+02:00"
                 },
                 {
                   "title": "EventBus",
@@ -2690,7 +2690,7 @@
                   "title": "OrderProcess",
                   "slug": "order-process",
                   "file": "docs/reference/typescript-api/orders/order-process.mdx",
-                  "lastModified": "2026-07-22T11:48:45+02:00"
+                  "lastModified": "2026-10-05T09:50:33+02:00"
                 },
                 {
                   "title": "OrderRecalculationStrategy",
@@ -2708,7 +2708,7 @@
                   "title": "StockAllocationStrategy",
                   "slug": "stock-allocation-strategy",
                   "file": "docs/reference/typescript-api/orders/stock-allocation-strategy.mdx",
-                  "lastModified": "2026-01-28T14:49:21+01:00"
+                  "lastModified": "2026-10-05T09:30:37+02:00"
                 }
               ],
               "lastModified": "2026-01-28T14:49:21+01:00"
@@ -2882,13 +2882,13 @@
                   "title": "DefaultStockLocationStrategy",
                   "slug": "default-stock-location-strategy",
                   "file": "docs/reference/typescript-api/products-stock/default-stock-location-strategy.mdx",
-                  "lastModified": "2026-01-28T14:49:21+01:00"
+                  "lastModified": "2026-10-05T09:30:37+02:00"
                 },
                 {
                   "title": "MultiChannelStockLocationStrategy",
                   "slug": "multi-channel-stock-location-strategy",
                   "file": "docs/reference/typescript-api/products-stock/multi-channel-stock-location-strategy.mdx",
-                  "lastModified": "2026-08-13T17:32:23+01:00"
+                  "lastModified": "2026-10-05T09:30:37+02:00"
                 },
                 {
                   "title": "ProductVariantPriceCalculationStrategy",
@@ -3076,7 +3076,7 @@
                   "title": "OrderModifier",
                   "slug": "order-modifier",
                   "file": "docs/reference/typescript-api/service-helpers/order-modifier.mdx",
-                  "lastModified": "2026-08-13T14:40:56+02:00"
+                  "lastModified": "2026-10-05T09:50:33+02:00"
                 },
                 {
                   "title": "ProductPriceApplicator",
@@ -3252,7 +3252,7 @@
                   "title": "ProductVariantService",
                   "slug": "product-variant-service",
                   "file": "docs/reference/typescript-api/services/product-variant-service.mdx",
-                  "lastModified": "2026-08-25T13:57:08Z"
+                  "lastModified": "2026-10-05T09:30:37+02:00"
                 },
                 {
                   "title": "PromotionService",
@@ -3311,18 +3311,20 @@
                 {
                   "title": "StockLevelLockOptions",
                   "slug": "stock-level-lock-options",
-                  "file": "docs/reference/typescript-api/services/stock-level-lock-options.mdx"
+                  "file": "docs/reference/typescript-api/services/stock-level-lock-options.mdx",
+                  "lastModified": "2026-10-05T09:30:37+02:00"
                 },
                 {
                   "title": "StockLevelReadOptions",
                   "slug": "stock-level-read-options",
-                  "file": "docs/reference/typescript-api/services/stock-level-read-options.mdx"
+                  "file": "docs/reference/typescript-api/services/stock-level-read-options.mdx",
+                  "lastModified": "2026-10-05T09:30:37+02:00"
                 },
                 {
                   "title": "StockLevelService",
                   "slug": "stock-level-service",
                   "file": "docs/reference/typescript-api/services/stock-level-service.mdx",
-                  "lastModified": "2026-09-01T16:09:25+02:00"
+                  "lastModified": "2026-10-05T09:30:37+02:00"
                 },
                 {
                   "title": "StockLocationService",
@@ -3334,7 +3336,7 @@
                   "title": "StockMovementService",
                   "slug": "stock-movement-service",
                   "file": "docs/reference/typescript-api/services/stock-movement-service.mdx",
-                  "lastModified": "2026-08-13T14:40:56+02:00"
+                  "lastModified": "2026-10-05T09:30:37+02:00"
                 },
                 {
                   "title": "TagService",
