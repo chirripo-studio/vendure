@@ -100,11 +100,16 @@ function build(
             Promise.resolve({ id: 'anon-id', token: 'anon-token', expires: new Date(Date.now() + 60_000) }),
         ),
     };
+    const activeOrderStrategy = {
+        name: 'test',
+        determineActiveOrder: vi.fn((): Promise<unknown> => Promise.resolve(undefined)),
+    };
     const configService = {
         authOptions: {
             customPermissions,
             entityAccessControlStrategy: new DefaultEntityAccessControlStrategy(),
         },
+        orderOptions: { activeOrderStrategy },
     };
     // Stands in for TransactionalConnection: mutating tools are handed a transactional context,
     // which here is just the context they were called with.
@@ -124,6 +129,7 @@ function build(
     );
     return {
         service,
+        activeOrderStrategy,
         rateLimiter,
         toolCallLog,
         settingsStoreService,
@@ -570,6 +576,130 @@ describe('McpToolRegistryService', () => {
             expect(toolCallLog.logToolCall).toHaveBeenCalledWith(
                 expect.objectContaining({ status: 'error' }),
             );
+        });
+    });
+
+    describe('cart currency', () => {
+        const cartTool = (over: Partial<McpToolMetadata> = {}) =>
+            shopTool({
+                name: 'touch_cart',
+                behavior: 'mutating',
+                usesActiveOrder: true,
+                permissions: [Permission.Authenticated],
+                ...over,
+            });
+
+        // Core's RequestContext reads its currency from a private field, and copy() keeps the getter.
+        const currencyGetter = {
+            get currencyCode() {
+                return (this as any)._currencyCode;
+            },
+        };
+        function signedInCtx(currencyCode: string) {
+            return Object.assign(
+                Object.create(currencyGetter),
+                makeCtx({ granted: [Permission.Authenticated] }),
+                {
+                    session: { id: 's1', token: 't1' },
+                    _currencyCode: currencyCode,
+                    copy() {
+                        return Object.assign(Object.create(currencyGetter), this);
+                    },
+                },
+            );
+        }
+
+        it("gives a tool that uses the active order a context in the cart's currency", async () => {
+            const execute = vi.fn(() => ({ ok: true }));
+            const { service, activeOrderStrategy } = build([wrapper(cartTool(), execute)]);
+            activeOrderStrategy.determineActiveOrder.mockResolvedValue({ id: '1', currencyCode: 'EUR' });
+            service.onApplicationBootstrap();
+            const ctx = signedInCtx('USD');
+
+            await service.callTool({ ctx }, 'shop', 'touch_cart', {});
+
+            const handlerCtx = (execute.mock.calls[0] as unknown[])[0] as typeof ctx;
+            expect(handlerCtx.currencyCode).toBe('EUR');
+            expect(handlerCtx.session).toBe(ctx.session);
+            expect(ctx.currencyCode).toBe('USD');
+        });
+
+        it('passes the context through unchanged when the cart is already in its currency', async () => {
+            const execute = vi.fn(() => ({ ok: true }));
+            const { service, activeOrderStrategy } = build([wrapper(cartTool(), execute)]);
+            activeOrderStrategy.determineActiveOrder.mockResolvedValue({ id: '1', currencyCode: 'USD' });
+            service.onApplicationBootstrap();
+            const ctx = signedInCtx('USD');
+
+            await service.callTool({ ctx }, 'shop', 'touch_cart', {});
+
+            expect((execute.mock.calls[0] as unknown[])[0]).toBe(ctx);
+        });
+
+        it('does not look up a cart for a tool that does not use the active order', async () => {
+            const { service, activeOrderStrategy } = build([
+                wrapper(cartTool({ usesActiveOrder: undefined })),
+            ]);
+            service.onApplicationBootstrap();
+
+            await service.callTool({ ctx: signedInCtx('USD') }, 'shop', 'touch_cart', {});
+
+            expect(activeOrderStrategy.determineActiveOrder).not.toHaveBeenCalled();
+        });
+
+        it('passes the context through unchanged when the shopper has no cart', async () => {
+            const execute = vi.fn(() => ({ ok: true }));
+            const { service, activeOrderStrategy } = build([wrapper(cartTool(), execute)]);
+            service.onApplicationBootstrap();
+            const ctx = signedInCtx('USD');
+
+            await service.callTool({ ctx }, 'shop', 'touch_cart', {});
+
+            expect(activeOrderStrategy.determineActiveOrder).toHaveBeenCalledOnce();
+            expect((execute.mock.calls[0] as unknown[])[0]).toBe(ctx);
+        });
+
+        it('asks the next active-order strategy when the first finds no cart', async () => {
+            const execute = vi.fn(() => ({ ok: true }));
+            const { service, activeOrderStrategy, configService } = build([wrapper(cartTool(), execute)]);
+            const secondStrategy = {
+                name: 'second',
+                determineActiveOrder: vi.fn(() => Promise.resolve({ id: '1', currencyCode: 'EUR' })),
+            };
+            (configService.orderOptions as any).activeOrderStrategy = [activeOrderStrategy, secondStrategy];
+            service.onApplicationBootstrap();
+
+            await service.callTool({ ctx: signedInCtx('USD') }, 'shop', 'touch_cart', {});
+
+            expect(activeOrderStrategy.determineActiveOrder).toHaveBeenCalledOnce();
+            expect(secondStrategy.determineActiveOrder).toHaveBeenCalledOnce();
+            expect(((execute.mock.calls[0] as unknown[])[0] as { currencyCode: string }).currencyCode).toBe(
+                'EUR',
+            );
+        });
+
+        it('does not look up a cart when the call has no session', async () => {
+            const execute = vi.fn(() => ({ ok: true }));
+            const { service, activeOrderStrategy } = build([wrapper(cartTool(), execute)]);
+            service.onApplicationBootstrap();
+            const ctx = makeCtx({ granted: [Permission.Authenticated] });
+
+            await service.callTool({ ctx }, 'shop', 'touch_cart', {});
+
+            expect(activeOrderStrategy.determineActiveOrder).not.toHaveBeenCalled();
+            expect((execute.mock.calls[0] as unknown[])[0]).toBe(ctx);
+        });
+
+        it('returns an error result without running the tool when the cart lookup throws', async () => {
+            const execute = vi.fn(() => ({ ok: true }));
+            const { service, activeOrderStrategy } = build([wrapper(cartTool(), execute)]);
+            activeOrderStrategy.determineActiveOrder.mockRejectedValue(new Error('lookup failed'));
+            service.onApplicationBootstrap();
+
+            const result = await service.callTool({ ctx: signedInCtx('USD') }, 'shop', 'touch_cart', {});
+
+            expect(result.isError).toBe(true);
+            expect(execute).not.toHaveBeenCalled();
         });
     });
 

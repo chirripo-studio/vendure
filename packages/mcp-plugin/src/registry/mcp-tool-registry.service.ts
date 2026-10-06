@@ -9,6 +9,7 @@ import {
     isGraphQlErrorResult,
     Logger,
     LogLevel,
+    Order,
     Permission,
     RequestContext,
     SettingsStoreService,
@@ -380,7 +381,8 @@ export class McpToolRegistryService implements OnApplicationBootstrap {
 
         const startedAt = Date.now();
         try {
-            const output = await this.runToolHandler(tool, callContext, toolInput);
+            const handlerContext = await this.inCartCurrency(tool, callContext);
+            const output = await this.runToolHandler(tool, handlerContext, toolInput);
             return await this.buildToolCallResult({
                 callContext,
                 tool,
@@ -428,6 +430,42 @@ export class McpToolRegistryService implements OnApplicationBootstrap {
             input: prepared.input,
             sessionToken: prepared.sessionToken,
         };
+    }
+
+    // Core reprices a cart into the request's currency on every change. A storefront sends the cart's
+    // currency with each request, but an MCP call has none, so the tool gets a copy of the context in
+    // the cart's currency.
+    private async inCartCurrency(
+        tool: McpRegisteredTool,
+        callContext: McpExecutionContext,
+    ): Promise<McpExecutionContext> {
+        const { ctx } = callContext;
+        // Without a session there is no cart, and core's lookup throws instead of returning none.
+        if (!tool.usesActiveOrder || !ctx.session) {
+            return callContext;
+        }
+        const cart = await this.findCart(ctx);
+        if (!cart || cart.currencyCode === ctx.currencyCode) {
+            return callContext;
+        }
+        // Set the same private field core sets when it changes a cart's currency.
+        const cartCtx = ctx.copy();
+        (cartCtx as any)._currencyCode = cart.currencyCode;
+        return { ...callContext, ctx: cartCtx };
+    }
+
+    // Only the lookup step of ActiveOrderService.getActiveOrder. getActiveOrder can also reprice a
+    // stale cart, and would do so in the request's currency, converting the cart before it is read.
+    private async findCart(ctx: RequestContext): Promise<Order | undefined> {
+        const { activeOrderStrategy } = this.configService.orderOptions;
+        const strategies = Array.isArray(activeOrderStrategy) ? activeOrderStrategy : [activeOrderStrategy];
+        for (const strategy of strategies) {
+            const order = await strategy.determineActiveOrder(ctx, {});
+            if (order) {
+                return order;
+            }
+        }
+        return undefined;
     }
 
     // A writing tool runs in one transaction, so a throw rolls back all its writes.
