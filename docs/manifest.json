@@ -971,7 +971,7 @@
           "title": "Registering Custom Tools",
           "slug": "custom-tools",
           "file": "docs/guides/mcp-server/custom-tools/index.mdx",
-          "lastModified": "2026-10-01T17:44:18Z"
+          "lastModified": "2026-10-06T07:25:43Z"
         },
         {
           "title": "Production Hardening",
@@ -4172,13 +4172,13 @@
               "title": "McpCallerGrant",
               "slug": "mcp-caller-grant",
               "file": "docs/reference/mcp-sdk/mcp-caller-grant.mdx",
-              "lastModified": "2026-10-01T19:26:07+02:00"
+              "lastModified": "2026-10-06T07:25:43Z"
             },
             {
               "title": "McpCallerInfo",
               "slug": "mcp-caller-info",
               "file": "docs/reference/mcp-sdk/mcp-caller-info.mdx",
-              "lastModified": "2026-10-01T19:26:07+02:00"
+              "lastModified": "2026-10-06T07:25:43Z"
             },
             {
               "title": "McpJsonSchema",
@@ -4208,7 +4208,7 @@
               "title": "McpTool",
               "slug": "mcp-tool",
               "file": "docs/reference/mcp-sdk/mcp-tool.mdx",
-              "lastModified": "2026-10-01T19:26:07+02:00"
+              "lastModified": "2026-10-06T07:25:43Z"
             },
             {
               "title": "McpToolBehavior",
@@ -4220,13 +4220,13 @@
               "title": "McpToolHandler",
               "slug": "mcp-tool-handler",
               "file": "docs/reference/mcp-sdk/mcp-tool-handler.mdx",
-              "lastModified": "2026-10-01T19:26:07+02:00"
+              "lastModified": "2026-10-06T07:25:43Z"
             },
             {
               "title": "McpToolMetadata",
               "slug": "mcp-tool-metadata",
               "file": "docs/reference/mcp-sdk/mcp-tool-metadata.mdx",
-              "lastModified": "2026-10-01T19:26:07+02:00"
+              "lastModified": "2026-10-06T07:25:43Z"
             },
             {
               "title": "McpToolSchema",
