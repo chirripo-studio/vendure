@@ -590,7 +590,9 @@ describe('ignore templates', () => {
     }
 
     it('keeps .env out of git', () => {
-        expect(readTemplateLines('gitignore.template')).toEqual(expect.arrayContaining(['.env', '.env.*']));
+        expect(readTemplateLines('gitignore.template')).toEqual(
+            expect.arrayContaining(['.env', '.env.*', '!.env.example']),
+        );
         expect(readTemplateLines('monorepo/root-gitignore.template')).toContain('.env');
     });
 

@@ -6,5 +6,5 @@ node_modules
 dist
 .git
 *.log
-# Keep the directory that the EmailPlugin file transport writes to, but not the emails in it.
-static/email/test-emails/*
+# Emails written by the EmailPlugin file transport. The plugin creates the directory when it needs it.
+static/email/test-emails
