@@ -1119,7 +1119,8 @@ describe('EmailPlugin', () => {
             expect(testingLogger.warnSpy).toHaveBeenCalledTimes(1);
             const [message, context] = testingLogger.warnSpy.mock.calls[0];
             expect(context).toBe('EmailPlugin');
-            expect(message).toContain('dev mailbox at route "mailbox" is publicly reachable');
+            expect(message).toContain('dev mailbox at route "mailbox" has no authentication');
+            expect(message).toContain('/generate/:type/:languageCode');
             expect(message).toContain('are not sent');
         });
 
@@ -1138,7 +1139,7 @@ describe('EmailPlugin', () => {
                         handlers: [],
                         transport: { type: 'smtp', host: 'smtp.example.com' },
                     },
-                    'production',
+                    { nodeEnv: 'production' },
                 ),
             ).toBeUndefined();
         });
