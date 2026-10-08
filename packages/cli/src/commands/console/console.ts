@@ -6,8 +6,16 @@ import {
     SessionRejectedError,
 } from '../../auth/auth-errors';
 import { AuthOptions } from '../../auth/auth-options';
-import { getAccessToken, loginWithDevice, readAuthStatus, refreshAccessToken } from '../../auth/auth-session';
+import {
+    getAccessToken,
+    listOrganizations,
+    loginWithDevice,
+    readAuthStatus,
+    refreshAccessToken,
+    scopeStoredLogin,
+} from '../../auth/auth-session';
 import { StoredOrganization } from '../../auth/auth-store';
+import { AuthOrganization } from '../../auth/console-api';
 import { CliCommandExit } from '../../shared/cli-command-exit';
 import { isNonInteractiveEnvironment, withInteractiveTimeout } from '../../utilities/utils';
 
@@ -42,8 +50,6 @@ const REQUEST_TIMEOUT_MS = 10_000;
 /** The project list grows with the account, so the cap is wider than one manifest needs. */
 const MAX_RESPONSE_BYTES = 1024 * 1024;
 const DOCS_MCP_URL = 'https://docs.vendure.io/mcp';
-const CODING_ASSISTANT_GUIDE_URL =
-    'https://docs.vendure.io/guides/developer-guide/cli#use-vendure-development-workflows-in-your-coding-assistant';
 
 export interface ConsoleCommandOptions {
     json?: boolean;
@@ -408,13 +414,8 @@ async function link(
     }
 
     const login = await signIn(endpoints, options.organization, dependencies, signal);
-    const organization = readAuthStatus(login.auth).organization;
-    if (!organization) {
-        throw new Error(
-            'Your CLI login is not scoped to an organization. Run vendure console link --organization ' +
-                '<account> with the Account identifier from Vendure Console → Settings.',
-        );
-    }
+    const organization =
+        readAuthStatus(login.auth).organization ?? (await scopeLogin(login, endpoints, dependencies, signal));
     const accountName = describeOrganization(organization);
     const project = await chooseProject(
         await listProjects(endpoints, login, accountName, dependencies, signal),
@@ -450,7 +451,7 @@ async function link(
         signal,
         state,
     );
-    reportCodingAssistantSetup(code, manifest, options, dependencies.reporter);
+    reportCodingAssistantSetup(code, manifest, endpoints, options, dependencies.reporter);
     return code;
 }
 
@@ -555,6 +556,75 @@ function matchesOrganization(organization: StoredOrganization | null | undefined
         organization?.customerAccountId?.toLowerCase() === value ||
         organization?.name?.trim().toLowerCase() === value
     );
+}
+
+/**
+ * A new customer's first device login has no organization. This scopes it.
+ * Console lists only the user's own active Customer Accounts, and
+ * WorkOS refuses an organization the user is not a member of. With one account
+ * the login uses it. With more, the user chooses, which needs a terminal.
+ */
+async function scopeLogin(
+    login: ConsoleLogin,
+    endpoints: ConsoleEndpoints,
+    dependencies: ConsoleCommandDependencies,
+    signal: AbortSignal,
+): Promise<StoredOrganization> {
+    try {
+        const organization = await chooseOrganization(
+            await listOrganizations(login.auth),
+            endpoints,
+            dependencies,
+        );
+        await scopeStoredLogin(organization, login.auth);
+        const accessToken = await getAccessToken(login.auth);
+        if (!accessToken) {
+            throw new NotLoggedInError();
+        }
+        login.accessToken = accessToken;
+        return organization;
+    } catch (error) {
+        if (signal.aborted) {
+            throw new CommandInterruptedError();
+        }
+        throw error;
+    }
+}
+
+async function chooseOrganization(
+    organizations: AuthOrganization[],
+    endpoints: ConsoleEndpoints,
+    dependencies: ConsoleCommandDependencies,
+): Promise<AuthOrganization> {
+    if (organizations.length === 0) {
+        throw new Error(
+            `Your Vendure Console login has no Customer Account yet. Create one at ${endpoints.consoleUrl}/onboarding, ` +
+                'then run vendure console link again.',
+        );
+    }
+    if (organizations.length === 1) {
+        return organizations[0];
+    }
+    const choices = organizations.map(organization => ({
+        value: organization.customerAccountId,
+        label: `${organization.name} (${organization.customerAccountId})`,
+    }));
+    if (dependencies.isNonInteractive()) {
+        throw new Error(
+            'Your Vendure Console login belongs to several Customer Accounts:\n' +
+                choices.map(choice => `  ${choice.label}`).join('\n') +
+                '\nRun vendure console link --organization <Account identifier> to choose one.',
+        );
+    }
+    const customerAccountId = await dependencies.select(
+        'Which Vendure Console account do you want to use?',
+        choices,
+    );
+    const chosen = organizations.find(organization => organization.customerAccountId === customerAccountId);
+    if (!chosen) {
+        throw new CommandInterruptedError();
+    }
+    return chosen;
 }
 
 function describeOrganization(organization: StoredOrganization): string {
@@ -756,7 +826,7 @@ async function repair(
         signal,
         state,
     );
-    reportCodingAssistantSetup(code, currentManifest, options, dependencies.reporter);
+    reportCodingAssistantSetup(code, currentManifest, endpoints, options, dependencies.reporter);
     return code;
 }
 
@@ -768,6 +838,7 @@ async function repair(
 function reportCodingAssistantSetup(
     code: number,
     manifest: ProjectLinkManifest,
+    endpoints: ConsoleEndpoints,
     options: ConsoleCommandOptions,
     reporter: ConsoleReporter,
 ): void {
@@ -781,9 +852,19 @@ function reportCodingAssistantSetup(
             '  2. The first time you use a development tool, the assistant asks you to sign in with Vendure ' +
                 `Console. Sign in and select the ${manifest.account.name} Account.`,
             'Linking did not configure or sign in to any coding assistant.',
-            `Setup guide: ${CODING_ASSISTANT_GUIDE_URL}`,
+            `Setup guide: ${codingAssistantGuideUrl(endpoints)}`,
         ].join('\n'),
     );
+}
+
+/**
+ * The guide the Console's "Development workflows" card links. Like the card,
+ * the production Console links the production docs and every other Console
+ * links the staging docs.
+ */
+function codingAssistantGuideUrl(endpoints: ConsoleEndpoints): string {
+    const host = officialConsoleEnvironment(endpoints) === 'production' ? 'docs' : 'staging.docs';
+    return `https://${host}.vendure.io/how-to-use`;
 }
 
 /**
