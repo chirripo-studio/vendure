@@ -4781,7 +4781,7 @@
                   "title": "DataTable",
                   "slug": "data-table",
                   "file": "docs/reference/dashboard/list-views/data-table.mdx",
-                  "lastModified": "2026-10-01T17:27:52Z"
+                  "lastModified": "2026-10-08T09:25:09Z"
                 },
                 {
                   "title": "DataTableCellComponent",
@@ -4799,13 +4799,13 @@
                   "title": "ListPage",
                   "slug": "list-page",
                   "file": "docs/reference/dashboard/list-views/list-page.mdx",
-                  "lastModified": "2026-09-21T15:40:19+02:00"
+                  "lastModified": "2026-10-08T09:25:09Z"
                 },
                 {
                   "title": "PaginatedListDataTable",
                   "slug": "paginated-list-data-table",
                   "file": "docs/reference/dashboard/list-views/paginated-list-data-table.mdx",
-                  "lastModified": "2026-10-01T17:27:52Z"
+                  "lastModified": "2026-10-08T09:25:09Z"
                 }
               ],
               "lastModified": "2026-01-28T14:49:21+01:00"
