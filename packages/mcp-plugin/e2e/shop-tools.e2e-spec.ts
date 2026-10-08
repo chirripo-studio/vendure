@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { CurrencyCode, LanguageCode } from '@vendure/common/lib/generated-types';
 import {
     ActiveOrderService,
@@ -8,6 +9,7 @@ import {
     CustomerService,
     defaultShippingEligibilityChecker,
     ID,
+    Injector,
     isGraphQlErrorResult,
     mergeConfig,
     Order,
@@ -26,7 +28,7 @@ import {
     User,
     VendurePlugin,
 } from '@vendure/core';
-import { McpTool, McpToolHandler, McpToolMetadata } from '@vendure/mcp-sdk';
+import { findOrCreateActiveOrder, McpTool, McpToolHandler, McpToolMetadata } from '@vendure/mcp-sdk';
 import { createTestEnvironment, SimpleGraphQLClient } from '@vendure/testing';
 import gql from 'graphql-tag';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -142,7 +144,51 @@ class PluginAddToCartTool implements McpToolHandler<{ variantId: string }> {
     }
 }
 
-@VendurePlugin({ imports: [PluginCommonModule], providers: [PluginAddToCartTool] })
+// Adds to the cart the way a plugin's own service does with the SDK helper: it finds or creates the
+// cart under the session lock, and writes to it in the context the helper returns.
+@Injectable()
+class PluginCartService {
+    constructor(
+        private readonly moduleRef: ModuleRef,
+        private readonly orderService: OrderService,
+    ) {}
+
+    async addOne(ctx: RequestContext, variantId: string) {
+        const cart = await findOrCreateActiveOrder(ctx, new Injector(this.moduleRef));
+        return this.orderService.addItemToOrder(cart.ctx, cart.order.id, variantId, 1);
+    }
+}
+
+@Injectable()
+@McpTool({
+    name: 'plugin_helper_add_to_cart',
+    description: 'Adds one of a variant to the active cart through findOrCreateActiveOrder.',
+    toolset: 'shop',
+    behavior: 'mutating',
+    usesActiveOrder: true,
+    permissions: [Permission.Public],
+    inputSchema: {
+        type: 'object',
+        properties: { variantId: { type: 'string' } },
+        required: ['variantId'],
+        additionalProperties: false,
+    },
+})
+class PluginHelperAddToCartTool implements McpToolHandler<{ variantId: string }> {
+    constructor(private readonly cartService: PluginCartService) {}
+
+    async execute(ctx: RequestContext, input: { variantId: string }) {
+        const result = await this.cartService.addOne(ctx, input.variantId);
+        return isGraphQlErrorResult(result)
+            ? result
+            : { currencyCode: result.currencyCode, orderCode: result.code };
+    }
+}
+
+@VendurePlugin({
+    imports: [PluginCommonModule],
+    providers: [PluginAddToCartTool, PluginCartService, PluginHelperAddToCartTool],
+})
 class PluginCartToolPlugin {}
 
 class TestOrderByCodeAccessStrategy implements OrderByCodeAccessStrategy {
@@ -645,7 +691,7 @@ describe('MCP built-in shop tools', () => {
         return flow.access_token;
     }
 
-    it('lists exactly the built-in shop tools and the test plugin tool for an authenticated customer', async () => {
+    it('lists exactly the built-in shop tools and the test plugin tools for an authenticated customer', async () => {
         const flow = await shopFlow();
         const response = await postMcp(baseUrl(), 'shop', rpc('tools/list', {}, 1), {
             token: flow.access_token,
@@ -653,7 +699,7 @@ describe('MCP built-in shop tools', () => {
 
         expect(response.status).toBe(200);
         expect(response.body.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(
-            [...shopToolNames, 'plugin_add_to_cart'].sort(),
+            [...shopToolNames, 'plugin_add_to_cart', 'plugin_helper_add_to_cart'].sort(),
         );
     });
 
@@ -707,6 +753,43 @@ describe('MCP built-in shop tools', () => {
 
         const order = await connection.getRepository(adminCtx, Order).findOneOrFail({
             where: { code: first.body.result.structuredContent.order.code },
+            relations: { lines: true },
+        });
+        expect(order.lines).toHaveLength(2);
+        expect(String((await anonymousSession(session.token)).activeOrderId)).toBe(String(order.id));
+    });
+
+    // OSS-854: a plugin tool that finds or creates the cart with findOrCreateActiveOrder gets the
+    // same session lock as add_to_cart. As above, the race only shows under `DB=postgres`.
+    it('adds both lines to one cart when two plugin tools that use findOrCreateActiveOrder share a session and run at once', async () => {
+        const session = await server.app.get(SessionService).createAnonymousSession();
+        const ordersBefore = await connection.getRepository(adminCtx, Order).count();
+
+        const [first, second] = await Promise.all(
+            [variantId, secondVariantId].map((id, index) =>
+                postMcp(
+                    baseUrl(),
+                    'shop',
+                    callTool(
+                        'plugin_helper_add_to_cart',
+                        { variantId: String(id), sessionToken: session.token },
+                        index + 1,
+                    ),
+                ),
+            ),
+        );
+
+        for (const response of [first, second]) {
+            expect(response.status).toBe(200);
+            expect(response.body.result.isError).toBeUndefined();
+        }
+        expect(first.body.result.structuredContent.orderCode).toBe(
+            second.body.result.structuredContent.orderCode,
+        );
+        expect(await connection.getRepository(adminCtx, Order).count()).toBe(ordersBefore + 1);
+
+        const order = await connection.getRepository(adminCtx, Order).findOneOrFail({
+            where: { code: first.body.result.structuredContent.orderCode },
             relations: { lines: true },
         });
         expect(order.lines).toHaveLength(2);
@@ -770,6 +853,35 @@ describe('MCP built-in shop tools', () => {
             .findOneOrFail({ where: { id: orderId }, relations: { lines: true } });
         expect(stored.currencyCode).toBe(second);
         expect(stored.lines).toHaveLength(1);
+        expect(stored.lines[0].quantity).toBe(2);
+        expect(stored.lines[0].listPrice).toBe(2000);
+    });
+
+    // OSS-854: a service that is not called through a tool with `usesActiveOrder: true` gets a context
+    // in the channel's default currency. The context that findOrCreateActiveOrder returns keeps the
+    // cart in its own currency.
+    it("returns a context in the cart's currency from findOrCreateActiveOrder", async () => {
+        const second = await allowSecondCurrency();
+        const { sessionToken, orderId } = await storefrontCartIn(second);
+        const session = await server.app.get(SessionService).getSessionFromToken(sessionToken);
+        const ctx = new RequestContext({
+            apiType: 'shop',
+            channel: await server.app.get(ChannelService).getDefaultChannel(),
+            session,
+            isAuthorized: false,
+            authorizedAsOwnerOnly: true,
+        });
+        expect(ctx.currencyCode).toBe(defaultCurrencyCode);
+
+        const cart = await findOrCreateActiveOrder(ctx, new Injector(server.app.get(ModuleRef)));
+        expect(String(cart.order.id)).toBe(String(orderId));
+        expect(cart.ctx.currencyCode).toBe(second);
+        await server.app.get(OrderService).addItemToOrder(cart.ctx, cart.order.id, variantId, 1);
+
+        const stored = await connection
+            .getRepository(adminCtx, Order)
+            .findOneOrFail({ where: { id: orderId }, relations: { lines: true } });
+        expect(stored.currencyCode).toBe(second);
         expect(stored.lines[0].quantity).toBe(2);
         expect(stored.lines[0].listPrice).toBe(2000);
     });
