@@ -971,7 +971,7 @@
           "title": "Registering Custom Tools",
           "slug": "custom-tools",
           "file": "docs/guides/mcp-server/custom-tools/index.mdx",
-          "lastModified": "2026-10-06T07:25:43Z"
+          "lastModified": "2026-10-08T19:48:44+02:00"
         },
         {
           "title": "Production Hardening",
@@ -4115,6 +4115,12 @@
               "lastModified": "2026-10-01T19:26:07+02:00"
             },
             {
+              "title": "FindOrCreateActiveOrder",
+              "slug": "find-or-create-active-order",
+              "file": "docs/reference/mcp-sdk/find-or-create-active-order.mdx",
+              "lastModified": "2026-10-08T19:48:44+02:00"
+            },
+            {
               "title": "GRAPHQL_INT_MAX",
               "slug": "graphql_int_max",
               "file": "docs/reference/mcp-sdk/graphql_int_max.mdx",
@@ -4167,6 +4173,12 @@
               "slug": "max_list_page_size",
               "file": "docs/reference/mcp-sdk/max_list_page_size.mdx",
               "lastModified": "2026-10-01T19:26:07+02:00"
+            },
+            {
+              "title": "McpActiveOrder",
+              "slug": "mcp-active-order",
+              "file": "docs/reference/mcp-sdk/mcp-active-order.mdx",
+              "lastModified": "2026-10-08T19:48:44+02:00"
             },
             {
               "title": "McpCallerGrant",
