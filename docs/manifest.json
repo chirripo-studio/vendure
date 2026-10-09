@@ -2470,13 +2470,13 @@
                   "title": "DeduplicateTranslations",
                   "slug": "deduplicate-translations",
                   "file": "docs/reference/typescript-api/migration/deduplicate-translations.mdx",
-                  "lastModified": "2026-09-01T11:21:59+02:00"
+                  "lastModified": "2026-10-09T13:26:48+02:00"
                 },
                 {
                   "title": "GenerateMigration",
                   "slug": "generate-migration",
                   "file": "docs/reference/typescript-api/migration/generate-migration.mdx",
-                  "lastModified": "2026-09-21T15:40:19+02:00"
+                  "lastModified": "2026-10-09T13:26:48+02:00"
                 },
                 {
                   "title": "MigrateAssetTranslationData",
@@ -2494,13 +2494,13 @@
                   "title": "MigrationDiagnostic",
                   "slug": "migration-diagnostic",
                   "file": "docs/reference/typescript-api/migration/migration-diagnostic.mdx",
-                  "lastModified": "2026-09-21T15:40:19+02:00"
+                  "lastModified": "2026-10-09T13:26:48+02:00"
                 },
                 {
                   "title": "MigrationOptions",
                   "slug": "migration-options",
                   "file": "docs/reference/typescript-api/migration/migration-options.mdx",
-                  "lastModified": "2026-09-21T15:40:19+02:00"
+                  "lastModified": "2026-10-09T13:26:48+02:00"
                 },
                 {
                   "title": "RescaleOrderLinePromotionAdjustments",
@@ -2512,19 +2512,31 @@
                   "title": "RevertLastMigration",
                   "slug": "revert-last-migration",
                   "file": "docs/reference/typescript-api/migration/revert-last-migration.mdx",
-                  "lastModified": "2026-09-21T15:40:19+02:00"
+                  "lastModified": "2026-10-09T13:26:48+02:00"
                 },
                 {
                   "title": "RunMigrations",
                   "slug": "run-migrations",
                   "file": "docs/reference/typescript-api/migration/run-migrations.mdx",
-                  "lastModified": "2026-09-21T15:40:19+02:00"
+                  "lastModified": "2026-10-09T13:26:48+02:00"
                 },
                 {
                   "title": "RunMigrationsOptions",
                   "slug": "run-migrations-options",
                   "file": "docs/reference/typescript-api/migration/run-migrations-options.mdx",
-                  "lastModified": "2026-09-21T15:40:19+02:00"
+                  "lastModified": "2026-10-09T13:26:48+02:00"
+                },
+                {
+                  "title": "TranslationTableColumnNames",
+                  "slug": "translation-table-column-names",
+                  "file": "docs/reference/typescript-api/migration/translation-table-column-names.mdx",
+                  "lastModified": "2026-10-09T13:26:48+02:00"
+                },
+                {
+                  "title": "TranslationTableToDeduplicate",
+                  "slug": "translation-table-to-deduplicate",
+                  "file": "docs/reference/typescript-api/migration/translation-table-to-deduplicate.mdx",
+                  "lastModified": "2026-10-09T13:26:48+02:00"
                 }
               ],
               "lastModified": "2026-01-28T14:49:21+01:00"
