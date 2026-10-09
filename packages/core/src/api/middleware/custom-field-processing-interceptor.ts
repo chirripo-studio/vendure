@@ -29,6 +29,19 @@ import { internal_getRequestContext, RequestContext } from '../common/request-co
 import { validateCustomFieldValue } from '../common/validate-custom-field-value';
 
 /**
+ * The positions in which `OrderLineCustomFieldsInput` updates an existing order line. Each entry
+ * names the enclosing input type, or the mutation field when the custom fields are an argument.
+ * Every other position adds an order line, so a placeholder there is rejected. A new mutation which
+ * updates order lines must be added here, or its placeholders fail with
+ * `error.secret-custom-field-value-required`.
+ */
+const ORDER_LINE_UPDATE_POSITIONS = new Set([
+    'adjustOrderLine',
+    'OrderLineInput',
+    'AdjustDraftOrderLineInput',
+]);
+
+/**
  * @description
  * Unified interceptor that processes custom fields in GraphQL mutations by:
  *
@@ -112,7 +125,9 @@ export class CustomFieldProcessingInterceptor implements NestInterceptor {
      * the database. When the API redacts a secret on read, the placeholder is what an edit form
      * submits back; if it were persisted, the encryption transformer would encrypt the literal
      * placeholder and destroy the stored secret. Placeholders are therefore stripped (leaving the
-     * stored value untouched), and a placeholder from a different Vendure version is rejected.
+     * stored value untouched), and a placeholder from a different Vendure version is rejected. A
+     * placeholder at a create position is also rejected, because a new entity has no stored secret to
+     * keep. {@link isCreatePosition} decides which positions are creates.
      *
      * The locations of custom fields are discovered from the schema — any value sitting at a position
      * typed as a `*CustomFieldsInput` type is a custom-fields object — so this works for every input
@@ -130,12 +145,7 @@ export class CustomFieldProcessingInterceptor implements NestInterceptor {
         }
         for (const arg of fieldDef.args) {
             if (arg.name in args) {
-                // On a create there is no stored value to preserve, so the placeholder is rejected
-                // rather than stripped. Only the generated `Create<Entity>Input` types and
-                // `RegisterCustomerInput` count as creates. A create through any other input type has
-                // the placeholder stripped (#5514).
-                const isCreate = this.createInputsWithCustomFields.has(getNamedType(arg.type).name);
-                this.walkAndStripSecrets(args[arg.name], arg.type, secretFieldsByInputType, isCreate);
+                this.walkAndStripSecrets(args[arg.name], arg.type, fieldDef.name, secretFieldsByInputType);
             }
         }
     }
@@ -143,13 +153,14 @@ export class CustomFieldProcessingInterceptor implements NestInterceptor {
     /**
      * Recursively descends a mutation input value against its GraphQL input type. Wherever the value
      * sits at a position typed as a `*CustomFieldsInput` type, its `secret` fields have their redaction
-     * placeholders stripped.
+     * placeholders stripped, or rejected at a create position. `parentName` is the name of the
+     * enclosing input type, or of the mutation field for an argument.
      */
     private walkAndStripSecrets(
         value: any,
         type: GraphQLInputType,
+        parentName: string,
         secretFieldsByInputType: Map<string, Set<string>>,
-        isCreate: boolean,
     ) {
         if (value == null) {
             return;
@@ -158,7 +169,7 @@ export class CustomFieldProcessingInterceptor implements NestInterceptor {
         if (isListType(nullableType)) {
             if (Array.isArray(value)) {
                 for (const item of value) {
-                    this.walkAndStripSecrets(item, nullableType.ofType, secretFieldsByInputType, isCreate);
+                    this.walkAndStripSecrets(item, nullableType.ofType, parentName, secretFieldsByInputType);
                 }
             }
             return;
@@ -166,15 +177,35 @@ export class CustomFieldProcessingInterceptor implements NestInterceptor {
         if (isInputObjectType(nullableType) && typeof value === 'object') {
             const secretFields = secretFieldsByInputType.get(nullableType.name);
             if (secretFields) {
+                const isCreate = this.isCreatePosition(nullableType.name, parentName);
                 this.stripSecretPlaceholdersFromObject(value, secretFields, isCreate);
             }
             const fields = nullableType.getFields();
             for (const [fieldName, field] of Object.entries(fields)) {
                 if (fieldName in value) {
-                    this.walkAndStripSecrets(value[fieldName], field.type, secretFieldsByInputType, isCreate);
+                    this.walkAndStripSecrets(
+                        value[fieldName],
+                        field.type,
+                        nullableType.name,
+                        secretFieldsByInputType,
+                    );
                 }
             }
         }
+    }
+
+    /**
+     * Decides whether a custom-fields object of the given `*CustomFieldsInput` type belongs to a new
+     * entity. `OrderLineCustomFieldsInput` counts as an update only in `ORDER_LINE_UPDATE_POSITIONS`.
+     * Any other type counts as an update only if it is an `Update<Entity>CustomFieldsInput`. A plugin
+     * create which takes an `Update<Entity>CustomFieldsInput` is therefore treated as an update, and
+     * its placeholders are stripped.
+     */
+    private isCreatePosition(customFieldsInputTypeName: string, parentName: string): boolean {
+        if (customFieldsInputTypeName === 'OrderLineCustomFieldsInput') {
+            return !ORDER_LINE_UPDATE_POSITIONS.has(parentName);
+        }
+        return !customFieldsInputTypeName.startsWith('Update');
     }
 
     private stripSecretPlaceholdersFromObject(
